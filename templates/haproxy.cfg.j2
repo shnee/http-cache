@@ -1,0 +1,29 @@
+global
+  log stdout format raw local0
+  # uid {{ haproxy_user.uid }}
+  # gid {{ haproxy_user.gid }}
+
+defaults
+  log global
+  mode http
+  option httplog
+  timeout client 10s
+  timeout connect 5s
+  timeout server 10s
+  timeout http-request 10s
+
+cache pkg_cache
+  total-max-size 4095
+  max-object-size 524288000
+
+frontend http_frontend
+  # bind *:4433 ssl crt {{ container_cert_file }}
+  bind *:8080
+  default_backend pkg_repo
+
+backend pkg_repo
+  http-request cache-use pkg_cache
+  http-response cache-store pkg_cache
+  option forwardfor
+  server server1 mirrors.gigenet.com:443 ssl
+

@@ -1,0 +1,75 @@
+---
+- name: Install a package cache.
+  # TODO REM this should be all, come up with a solution.
+  hosts: all
+
+  vars:
+    install_docker: false
+    # This object represents the uid/gid for the haproxy user/group in the
+    # haproxy container.
+    haproxy_user:
+      # uid: 1003
+      # gid: 1007
+      uid: &haproxy_uid 99
+      gid: &haproxy_gid 99
+    persistent_data_directory: /media1/srv/pkg-cache
+    host_cert_file: "{{ persistent_data_directory }}/{{ cert_name }}"
+    host_config_file: "{{ persistent_data_directory }}/haproxy.cfg"
+    permissions: &persistent_data_permissions
+      # owner: gert
+      # group: gert
+      owner: *haproxy_uid
+      group: *haproxy_gid
+      mode: '0640'
+    cert_name: pkg-cache-shnee-net-key-cert.pem
+    container_cert_file: "/etc/ssl/certs/{{ cert_name }}"
+  vars_files: ./certs.yml
+
+  tasks:
+
+    - name: Install docker.
+      ansible.builtin.include_role:
+        name: install_docker
+      when: install_docker
+
+    - name: Create hosts directory for data.
+      ansible.builtin.file:
+        path: "{{ persistent_data_directory }}"
+        state: directory
+        <<: *persistent_data_permissions
+        mode: '0750'
+      become: true
+
+    - name: Create haproxy config file.
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: "{{ host_config_file }}"
+        <<: *persistent_data_permissions
+      become: true
+
+    - name: Copy over SSL cert.
+      ansible.builtin.copy:
+        dest: "{{ host_cert_file }}"
+        content: "{{ pkg_cache_shnee_net_key_cert_pem }}"
+        <<: *persistent_data_permissions
+        mode: '0600'
+      become: true
+
+    - name: Start the haproxy container.
+      community.docker.docker_container:
+        image: haproxy
+        name: pkg-cache
+        state: started
+        restart: true
+        network_mode: default
+        # TODO REM this shouldn't be needed becuase of the proxy.
+        # published_ports:
+        #   - 4433:4433
+        volumes:
+          - "{{ host_config_file }}:/usr/local/etc/haproxy/haproxy.cfg"
+          - "{{ host_cert_file }}:{{ container_cert_file }}"
+        env:
+          VIRTUAL_HOST: pkg.shnee.net
+          VIRTAUL_PORT: "8080"
+          NETWORK_ACCESS: internal
+        restart_policy: unless-stopped
