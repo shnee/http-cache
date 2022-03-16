@@ -5,6 +5,7 @@
 
   vars:
     install_docker: false
+    # TODO remove this if unused.
     # This object represents the uid/gid for the haproxy user/group in the
     # haproxy container.
     haproxy_user:
@@ -14,7 +15,7 @@
       gid: &haproxy_gid 99
     persistent_data_directory: /media1/srv/pkg-cache
     host_cert_file: "{{ persistent_data_directory }}/{{ cert_name }}"
-    host_config_file: "{{ persistent_data_directory }}/haproxy.cfg"
+    host_config_file: "{{ persistent_data_directory }}/nuster.cfg"
     permissions: &persistent_data_permissions
       # owner: gert
       # group: gert
@@ -40,9 +41,9 @@
         mode: '0750'
       become: true
 
-    - name: Create haproxy config file.
+    - name: Create nuster config file.
       ansible.builtin.template:
-        src: templates/haproxy.cfg.j2
+        src: templates/nuster.cfg.j2
         dest: "{{ host_config_file }}"
         <<: *persistent_data_permissions
       become: true
@@ -55,9 +56,9 @@
         mode: '0600'
       become: true
 
-    - name: Start the haproxy container.
+    - name: Start the nuster container.
       community.docker.docker_container:
-        image: haproxy
+        image: nuster/nuster:5.3.0.23-alpine
         name: pkg-cache
         state: started
         restart: true
@@ -66,8 +67,9 @@
         # published_ports:
         #   - 4433:4433
         volumes:
-          - "{{ host_config_file }}:/usr/local/etc/haproxy/haproxy.cfg"
+          - "{{ host_config_file }}:/etc/nuster/nuster.cfg"
           - "{{ host_cert_file }}:{{ container_cert_file }}"
+          - "{{ persistent_data_directory }}/cache:/cache"
         env:
           VIRTUAL_HOST: pkg.shnee.net
           VIRTAUL_PORT: "8080"
