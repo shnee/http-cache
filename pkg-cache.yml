@@ -65,7 +65,7 @@
         network_mode: default
         # TODO REM this shouldn't be needed becuase of the proxy.
         # published_ports:
-        #   - 4433:4433
+        #   - 4433:8080
         volumes:
           - "{{ host_config_file }}:/etc/nuster/nuster.cfg"
           - "{{ host_cert_file }}:{{ container_cert_file }}"
