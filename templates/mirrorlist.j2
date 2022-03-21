@@ -1,0 +1,6 @@
+## This mirrorlist has been generated pkg-cache.yml playbook to use a cached
+## proxy for package repos. 
+
+{% for repo in repos %}
+Server = http://{{ repo.name }}.pkg.shnee.net/manjaro/stable/$repo/$arch
+{% endfor %}

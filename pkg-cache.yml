@@ -5,6 +5,18 @@
 
   vars:
     install_docker: false
+    # For arch distros just run `pacman-mirrors --fasttrack` to grab the fastest
+    # repos in your country.
+    repos:
+      - name: gigenet
+        url: mirrors.gigenet.com
+        port: 443
+      - name: ialab
+        url: repo.ialab.dsu.edu
+        port: 443
+      - name: princeton
+        url: mirror.math.princeton.edu
+        port: 443
     # TODO remove this if unused.
     # This object represents the uid/gid for the haproxy user/group in the
     # haproxy container.
@@ -16,6 +28,8 @@
     persistent_data_directory: /media1/srv/pkg-cache
     host_cert_file: "{{ persistent_data_directory }}/{{ cert_name }}"
     host_config_file: "{{ persistent_data_directory }}/nuster.cfg"
+    host_mirrorlist_file: "{{ persistent_data_directory }}/mirrorlist"
+    local_mirrorlist_file: ~/dev/pkg-cache-ansible/mirrorlist
     permissions: &persistent_data_permissions
       # owner: gert
       # group: gert
@@ -48,6 +62,21 @@
         <<: *persistent_data_permissions
       become: true
 
+    # This is an example mirrorlist to used with this package cache.
+    - name: Create the mirrorlist example.
+      ansible.builtin.template:
+        src: templates/mirrorlist.j2
+        dest: "{{ host_mirrorlist_file }}"
+        <<: *persistent_data_permissions
+      become: true
+
+    - name: Copy the mirrorlist to localhost.
+      ansible.builtin.fetch:
+        src: "{{ host_mirrorlist_file }}"
+        dest: "{{ local_mirrorlist_file }}"
+        flat: true
+      become: true
+
     - name: Copy over SSL cert.
       ansible.builtin.copy:
         dest: "{{ host_cert_file }}"
@@ -62,6 +91,7 @@
         name: pkg-cache
         state: started
         restart: true
+        # recreate: true
         network_mode: default
         # TODO REM this shouldn't be needed becuase of the proxy.
         # published_ports:
@@ -71,7 +101,7 @@
           - "{{ host_cert_file }}:{{ container_cert_file }}"
           - "{{ persistent_data_directory }}/cache:/cache"
         env:
-          VIRTUAL_HOST: pkg.shnee.net
-          VIRTAUL_PORT: "8080"
-          NETWORK_ACCESS: internal
+          VIRTUAL_HOST: pkg.shnee.net,*.pkg.shnee.net
+          VIRTUAL_PORT: "8080"
+          # NETWORK_ACCESS: internal
         restart_policy: unless-stopped

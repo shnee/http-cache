@@ -1,5 +1,6 @@
 global
   log stdout format raw local0
+  # TODO REM remove these and haproxy from the vars if unused.
   # uid {{ haproxy_user.uid }}
   # gid {{ haproxy_user.gid }}
   nuster cache on dir /cache
@@ -16,11 +17,15 @@ defaults
 frontend http_frontend
   # bind *:4433 ssl crt {{ container_cert_file }}
   bind *:8080
-  default_backend pkg_repo
+{% for repo in repos %}
+  use_backend {{ repo.name }}_pkg_repo if { hdr_beg(host) -i {{ repo.name }} }
+{% endfor %}
 
-backend pkg_repo
+{% for repo in repos %}
+
+backend {{ repo.name }}_pkg_repo
   nuster cache on
-  nuster rule r1 disk on memory off
+  nuster rule {{ repo.name }}_rule disk on memory off
   option forwardfor
-  server server1 mirrors.gigenet.com:443 ssl verify none
-
+  server {{ repo.name }} {{ repo.url }}:{{ repo.port }} ssl verify none
+{% endfor %}
